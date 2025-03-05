@@ -4,14 +4,6 @@
 
 ### Predict how fast an AI model runs
 
-
-
-Timeline
-
-Start: August 30, 2023
-
-Close: November 18, 2023
-
 ## Description
 
 ## AI Compiler Background

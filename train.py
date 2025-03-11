@@ -15,9 +15,19 @@ best_val_at_epoch=-1
 epochs=2
 
 for i in range(epochs):
-    history = model.fit(
-        layout_train, epochs=1, verbose=1, validation_data=layout_valid,
-        validation_freq=1)
+   # history = model.fit(
+        #layout_train, epochs=1, verbose=1, validation_data=layout_valid,
+        #validation_freq=1)
+    features=torch.tensor(node_ftr,dtype=torch.float32).to(device)
+    labels=torch.tensor(y,dtype=torch.long).to(device)
+    model.to(device)
+    model.train()
+    with torch.set_grad_enabled(True):
+    optimizer.zero_grad()
+    output, edge_weights = model(features, edge_index, edgenet_input,random_walk_embeddings)
+    loss_train = torch.nn.CrossEntropyLoss()(output[train_ind], labels[train_ind])
+    loss_train.backward()
+    optimizer.step()
 
     train_loss = history.history['loss'][-1]
     train_opa = history.history['opa_metric'][-1]
@@ -31,6 +41,8 @@ for i in range(epochs):
     elif early_stopping > 0 and i - best_val_at_epoch >= early_stopping:
       print('[@%i] Best accuracy was attained at epoch %i. Stopping.' % (i, best_val_at_epoch))
       break
+
+
 
 # Restore best parameters.
 print('Restoring parameters corresponding to the best validation OPA.')

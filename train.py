@@ -1,51 +1,58 @@
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
 from model import SAGEConv,GraphNeuralNetwork,Cheb_ploynomial
-gnn_model = GraphNeuralNetwork(ops=ops, embed_dim=16)
-gnn_model.compile(optimizer='adam', loss='mse')
 
-loss=tfr.keras.losses.ListMLELoss()
-opt=tf._optimizers.Adam(learning_rate=0.01,clipnorm=0.5)
-model.compile(loss=loss,optimizer=opt,metrics=[
-    tfr.keras.metrics.OPAMetric(name="opa_metric"),
-])
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+gnn_model.to(device)
 
-early_stopping=10
-best_params=None
-best_val_opa=-1
-best_val_at_epoch=-1
-epochs=2
+# Loss and optimizer
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(gnn_model.parameters(), lr=0.01, weight_decay=1e-4)
 
-for i in range(epochs):
-   # history = model.fit(
-        #layout_train, epochs=1, verbose=1, validation_data=layout_valid,
-        #validation_freq=1)
-    features=torch.tensor(node_ftr,dtype=torch.float32).to(device)
-    labels=torch.tensor(y,dtype=torch.long).to(device)
-    model.to(device)
-    model.train()
-    with torch.set_grad_enabled(True):
+# Early stopping parameters
+early_stopping = 10
+best_params = None
+best_val_opa = -1
+best_val_at_epoch = -1
+epochs = 2
+
+# Training loop
+for epoch in range(epochs):
+    gnn_model.train()
     optimizer.zero_grad()
-    output, edge_weights = model(features, edge_index, edgenet_input,random_walk_embeddings)
-    loss_train = torch.nn.CrossEntropyLoss()(output[train_ind], labels[train_ind])
+    
+    # Forward pass
+    output, edge_weights = gnn_model(features, edge_index, edgenet_input, random_walk_embeddings)
+    loss_train = criterion(output[train_ind], labels[train_ind])
+    
+    # Backward pass
     loss_train.backward()
     optimizer.step()
+    
+    # Calculate training OPA metric (assuming a function `calculate_opa` is defined)
+    train_opa = calculate_opa(output[train_ind], labels[train_ind])
+    
+    # Validation step
+    gnn_model.eval()
+    with torch.no_grad():
+        val_output, _ = gnn_model(features, edge_index, edgenet_input, random_walk_embeddings)
+        val_loss = criterion(val_output[val_ind], labels[val_ind]).item()
+        val_opa = calculate_opa(val_output[val_ind], labels[val_ind])
 
-    train_loss = history.history['loss'][-1]
-    train_opa = history.history['opa_metric'][-1]
-    val_loss = history.history['val_loss'][-1]
-    val_opa = history.history['val_opa_metric'][-1]
+    # Check for improvement
     if val_opa > best_val_opa:
         best_val_opa = val_opa
-        best_val_at_epoch = i
-        best_params = {v.ref: v + 0 for v in model.trainable_variables}
-        print(' * [@%i] Validation (NEW BEST): %s' % (i, str(val_opa)))
-    elif early_stopping > 0 and i - best_val_at_epoch >= early_stopping:
-      print('[@%i] Best accuracy was attained at epoch %i. Stopping.' % (i, best_val_at_epoch))
-      break
+        best_val_at_epoch = epoch
+        best_params = {name: param.clone() for name, param in gnn_model.named_parameters()}
+        print(f" * [@{epoch}] Validation (NEW BEST): {val_opa}")
+    elif early_stopping > 0 and epoch - best_val_at_epoch >= early_stopping:
+        print(f"[@{epoch}] Best accuracy was attained at epoch {best_val_at_epoch}. Stopping.")
+        break
 
-
-
-# Restore best parameters.
-print('Restoring parameters corresponding to the best validation OPA.')
-assert best_params is not None
-for v in model.trainable_variables:
-    v.assign(best_params[v.ref])
+# Restore best parameters
+print("Restoring parameters corresponding to the best validation OPA.")
+if best_params is not None:
+    for name, param in gnn_model.named_parameters():
+        param.data.copy_(best_params[name])

@@ -65,7 +65,7 @@ tile:xla
 
 ### Technologies and Tools  
 
-- **Deep Learning Frameworks:** TensorFlow, Keras.  
+- **Deep Learning Frameworks:** TensorFlow, Keras, PyTorch.  
 - **Graph Neural Network Architectures:** ChebNet, GraphSAGE.  
 - **Ranking Loss Function:** ListMLE for optimizing graph ranking performance.  
 - **Compiler Configuration Optimization:** Focused on layout and tile configurations for AI models.  
